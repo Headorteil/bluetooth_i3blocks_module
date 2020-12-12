@@ -1,0 +1,43 @@
+#!/bin/sh
+
+case $BLOCK_BUTTON in
+	1) bluetoothctl power on > /dev/null; path/to/bluetooth_getbat FF:FF:FF:FF:FF:FF >/dev/null &;;
+	2) bluetoothctl power off > /dev/null; rm -f /tmp/bluetooth_bat; rm -f /tmp/bluetooth_ch;;
+        3) pgrep -x dunst >/dev/null && notify-send "🎧 Bluetooth Headphone module:" "\- Shows battery level
+- Left click : connect headphone
+- Middle click : disconnect headphone
+- Right click : show this message
+✅ : bluetooth on
+⛔ : bluetooth off
+🔊 : headphone connected
+🔇 : headphone disconnected
+🔌 : charging
+🛑 : discharging";;
+esac
+
+powered=$(bluetoothctl show | awk '/Powered: /{print}' | cut -f2 | cut -d " " -f2)
+connected=$(bluetoothctl info | cut  -d" " -f1)
+
+if [ "$powered" == "yes" ]; then
+  msg=✅;
+  if [ -f "/tmp/bluetooth_ch" ]; then
+    char=$(cat /tmp/bluetooth_ch);
+  else
+    char="";
+  fi;
+  if [ -f "/tmp/bluetooth_bat" ]; then
+    bat=" $(cat /tmp/bluetooth_bat)%";
+  else
+    bat=" ";
+  fi;
+else
+  msg=⛔;
+  char="";
+  bat="";
+fi;
+
+if [ "$connected" == "Missing" ]; then
+  echo $msg 🔇;
+else
+  echo $msg 🔊 $char$bat;
+fi;

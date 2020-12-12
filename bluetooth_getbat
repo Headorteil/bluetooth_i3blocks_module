@@ -1,0 +1,42 @@
+#! /bin/python
+
+import bluetooth
+import sys
+import os
+from fractions import Fraction
+from re import findall
+
+
+def send(sock, message):
+    sock.send(b"\r\n" + message + b"\r\n")
+
+
+def p(msg, f):
+    with open(f, "w") as f:
+        f.write(msg)
+
+
+if __name__ == "__main__":
+    r = Fraction(100) / 22
+    device = sys.argv[1]
+    port = 3
+    try:
+        s = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+        s.connect((device, port))
+        while True:
+            recv = s.recv(128)
+            if len(power := findall(b"XEVENT=BATTERY,([0-9]+),", recv)) > 0:
+                char = int(findall(b",([0-9]+)\r$", recv)[0].decode())
+                bat = str((int(power[0].decode()) * r).__round__())
+                if char:
+                    p("🔌", "/tmp/bluetooth_ch")
+                else:
+                    p("🛑", "/tmp/bluetooth_ch")
+                p(bat, "/tmp/bluetooth_bat")
+            send(s, b"OK")
+    except bluetooth.btcommon.BluetoothError:
+        if os.path.isfile("/tmp/bluetooth_bat"):
+            os.remove("/tmp/bluetooth_bat")
+        if os.path.isfile("/tmp/bluetooth_ch"):
+            os.remove("/tmp/bluetooth_ch")
+        exit(0)
