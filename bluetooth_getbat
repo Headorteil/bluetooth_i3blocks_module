@@ -3,6 +3,8 @@
 import bluetooth
 import sys
 import os
+import subprocess
+from time import sleep
 from fractions import Fraction
 from re import findall
 
@@ -17,12 +19,36 @@ def p(msg, f):
 
 
 if __name__ == "__main__":
-    r = Fraction(100) / 22
+    r = Fraction(100) / 24
     device = sys.argv[1]
     port = 3
+    s = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+    state = subprocess.run(["bluetoothctl", "show"], stdout=subprocess.PIPE)
+    out = state.stdout.decode().strip()
+    if out == "No default controller available":
+        subprocess.run(["rfkill", "block", "0"])
+        subprocess.run(["rfkill", "unblock", "0"])
+        subprocess.run(["bluetoothctl", "power", "on"])
+        cur = subprocess.run(["bluetoothctl", "show"], stdout=subprocess.PIPE)
+        while "Powered: yes" not in cur.stdout.decode():
+            cur = subprocess.run(["bluetoothctl", "show"],
+                                 stdout=subprocess.PIPE)
+            sleep(0.1)
+    elif findall("Powered: (.+)\n", out)[0] == "no":
+        subprocess.run(["bluetoothctl", "power", "on"])
+        cur = subprocess.run(["bluetoothctl", "show"], stdout=subprocess.PIPE)
+        while "Powered: yes" not in cur.stdout.decode():
+            cur = subprocess.run(["bluetoothctl", "show"],
+                                 stdout=subprocess.PIPE)
+            sleep(0.1)
+    else:
+        pow = subprocess.run(["bluetoothctl", "info"], stdout=subprocess.PIPE)
+        out = pow.stdout.decode().strip()
+        if out != "Missing device address argument":
+            subprocess.run(["bluetoothctl", "disconnect", device])
+    s.connect((device, port))
+    subprocess.run(["bluetoothctl", "connect", device])
     try:
-        s = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
-        s.connect((device, port))
         while True:
             recv = s.recv(128)
             if len(power := findall(b"XEVENT=BATTERY,([0-9]+),", recv)) > 0:
